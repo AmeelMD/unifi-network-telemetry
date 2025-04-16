@@ -1,0 +1,66 @@
+version: '3.7'
+
+services:
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USER}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+    ports:
+      - "8086:8086"
+    networks:
+      - telemetry
+
+  grafana:
+    image: grafana/grafana:10.0.3
+    container_name: grafana
+    depends_on:
+      - influxdb
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SERVER_DOMAIN=${GRAFANA_HOSTNAME}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST}:${SMTP_PORT}
+      - GF_SMTP_USER=${SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASS}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM}
+      - GF_SMTP_FROM_NAME="${GRAFANA_FROM_NAME}"
+    ports:
+      - "3000:3000"
+    networks:
+      - telemetry
+
+  unifi-poller:
+    image: golift/unifi-poller:latest
+    container_name: unifi-poller
+    depends_on:
+      - influxdb
+    environment:
+      - UP_INFLUXDB_URL=http://influxdb:8086
+      - UP_INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - UP_INFLUXDB_ORG=${INFLUXDB_ORG}
+      - UP_INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
+      - UP_UNIFI_DEFAULT_USER=${UNIFI_USER}
+      - UP_UNIFI_DEFAULT_PASS=${UNIFI_PASS}
+      - UP_UNIFI_DEFAULT_URL=${UNIFI_URL}
+    networks:
+      - telemetry
+
+volumes:
+  influxdb-data:
+  grafana-data:
+
+networks:
+  telemetry:
+    driver: bridge
